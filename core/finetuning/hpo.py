@@ -9,7 +9,7 @@ class HPO(Stage):
 
         # training hyperparams
         self.config.configure('learning_rate', 1e-3)
-        self.config.configure('epochs', 10)
+        self.config.configure('epochs', 5)
         self.config.configure('optimizer', ModelOptimizer.ADAM)
         # configuring scheduler ...
 

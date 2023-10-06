@@ -1,3 +1,4 @@
+import torch.cuda
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer
@@ -52,9 +53,7 @@ class DataTokenizing(Stage):
 
         self.config.configure('validation_dataset_size', 0.3)
         self.config.configure('test_dataset_size', 0.1)
-
-        self.config.configure('batch_size', 1)
-        self.config.configure('num_workers', 2)
+        self.config.configure('batch_size', 4)
 
         x_train, x_test, y_train, y_test = train_test_split(self.config.X,
                                                             self.config.Y,
@@ -72,18 +71,15 @@ class DataTokenizing(Stage):
 
         self.config.configure('train_dataloader', DataLoader(self.config.train_dataset,
                                                              batch_size=self.config.batch_size,
-                                                             shuffle=True,
-                                                             num_workers=self.config.num_workers))
+                                                             shuffle=True))
 
         self.config.configure('validation_dataloader', DataLoader(self.config.validation_dataset,
                                                                   batch_size=self.config.batch_size,
-                                                                  shuffle=False,
-                                                                  num_workers=self.config.num_workers))
+                                                                  shuffle=False))
 
         self.config.configure('test_dataloader', DataLoader(self.config.test_dataset,
                                                             batch_size=self.config.batch_size,
-                                                            shuffle=False,
-                                                            num_workers=self.config.num_workers))
+                                                            shuffle=False))
 
     def validate(self) -> bool:
         pass

@@ -74,7 +74,9 @@ class NLPModel(pl.LightningModule):
         self.val_loss.append(loss.detach().cpu())
 
     def configure_optimizers(self):
-        assert hasattr(torch.optim, self.config.optimizer.value), 'Invalid optimizer name'
+        assert any([parameter.requires_grad for parameter in self.model.parameters()]), \
+            'all weights in model are frozen'
+        assert hasattr(torch.optim, self.config.optimizer.value), 'invalid optimizer name'
         optimizer = getattr(torch.optim, self.config.optimizer.value)(self.model.parameters(),
                                                                       lr=self.config.learning_rate)
         return optimizer
@@ -83,14 +85,14 @@ class NLPModel(pl.LightningModule):
         outputs = self.train_loss
 
         loss = torch.stack([x for x in outputs]).mean()
-        print(f'train loss = {loss:.8f}\n')
+        print(f'train loss = {loss:.15f}\n')
         self.train_loss = []
 
     def on_validation_epoch_end(self):
         outputs = self.val_loss
 
         loss = torch.stack([x for x in outputs]).mean()
-        print(f'val loss = {loss:.8f}\n')
+        print(f'val loss = {loss:.15f}\n')
         self.val_loss = []
 
 

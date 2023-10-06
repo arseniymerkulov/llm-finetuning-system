@@ -18,7 +18,7 @@ class MainProcess(Thread):
             DataTokenizing(),
             FinetuningMethodSelection(),
             HPO(),
-            Finetuning(),
+            # Finetuning(),
             Evaluating()
         )
 

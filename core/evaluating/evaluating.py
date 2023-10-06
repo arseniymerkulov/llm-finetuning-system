@@ -2,20 +2,19 @@ import pytorch_lightning as pl
 import torchmetrics
 import torch
 import glob
-import os
+import re
 
 
 from core.main_process.pipeline import Stage
 from core.finetuning.finetuning import NLPModel
-from core.configuration.configuration import Configuration
 from core.configuration.hyperparams import TASK_TO_METRICS_MAPPING, Metric
 
 
-class NLPEvaluatingModel(pl.LightningModule):
+class NLPEvaluatingModel(NLPModel):
     def __init__(self):
+        # todo: research problems in comments
+        # maybe two model classes is not optimal
         super().__init__()
-        self.config = Configuration.get_instance()
-        self.model = self.config.model
         self.metrics = [self._create_metric(metric['metric']).cuda() for metric in self.config.metrics]
 
     def _create_metric(self, metric: Metric):
@@ -57,11 +56,12 @@ class NLPEvaluatingModel(pl.LightningModule):
 
 class Evaluating(Stage):
     def execute(self):
+        # todo: cycle between finetuning and evaluation
         # todo: assert that checkpoint exists
 
-        self.config.configure('model', NLPModel())
-        self.config.configure('checkpoints_dir', f'{self.config.project_dir}/checkpoints')
         self.config.configure('metrics', [{'metric': metric} for metric in TASK_TO_METRICS_MAPPING[self.config.task]])
+        self.config.configure('checkpoints_dir', f'{self.config.project_dir}/checkpoints')
+        self.config.configure('model', NLPEvaluatingModel())
 
         if not self.config.configured['best_checkpoint_path']:
             self.config.configure('best_checkpoint_path', self._get_best_model())
@@ -72,22 +72,23 @@ class Evaluating(Stage):
         logger = pl.loggers.WandbLogger(name=self.config.model_alias, project=f'{self.config.project}-evaluating')
 
         trainer = pl.Trainer(
-            max_epochs=self.config.epochs,
             accelerator='auto',
             logger=logger
         )
 
         trainer.test(
-            NLPEvaluatingModel(),
+            self.config.model,
             self.config.test_dataloader
         )
+
+        self.logger.info(f'computed metrics: {self.config.metrics}')
 
     def _get_best_model(self):
         models = glob.glob(f'{self.config.checkpoints_dir}/*/*.ckpt')
         assert len(models), 'empty checkpoints directory'
 
         # checkpoint filename format specified in the core/settings.py
-        losses = [float(os.path.split(model_path)[-1].split('val_loss=')[1].split('.ckpt')[0]) for model_path in models]
+        losses = [float(re.findall(r'[0-9]*[.,]?[0-9]+', model_path)[0]) for model_path in models]
         models = [model_path for _, model_path in sorted(zip(losses, models), reverse=True, key=lambda pair: pair[0])]
         return models[0]
 

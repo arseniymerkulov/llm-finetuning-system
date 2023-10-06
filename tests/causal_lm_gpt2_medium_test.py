@@ -11,6 +11,8 @@ def test():
         'project': test_name,
         'task': 'CAUSAL_LM',
         'dataset_alias': 'sunnysai12345/news-summary',
+        'dataset_table_columns': ['text', 'ctext'],
+        'dataset_partition': 10000,
         'model_alias': 'gpt2-medium'
     })
 
@@ -18,4 +20,6 @@ def test():
     test_process.update_configuration('project')
     test_process.update_configuration('task')
     test_process.update_configuration('dataset_alias')
+    test_process.update_configuration('dataset_table_columns')
+    test_process.update_configuration('dataset_partition')
     test_process.update_configuration('model_alias')
