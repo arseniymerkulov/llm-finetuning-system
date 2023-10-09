@@ -1,11 +1,11 @@
-import torch.cuda
+import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer
 
 
 from core.main_process.pipeline import Stage
-from core.configuration.configuration import Configuration
+from core.configuration import Configuration
 
 
 class NLPDataset(Dataset):
@@ -15,31 +15,38 @@ class NLPDataset(Dataset):
         self.config = Configuration.get_instance()
         self.tokenizer = self.config.tokenizer
 
+        self.tokenized_Y = None
         self.tokenized_X = self.tokenizer(X,
                                           return_tensors='pt',
                                           padding='max_length',
                                           truncation=True,
                                           max_length=self.config.tokenizer_max_length)
 
-        self.tokenized_Y = self.tokenizer(Y,
-                                          return_tensors='pt',
-                                          padding='max_length',
-                                          truncation=True,
-                                          max_length=self.config.tokenizer_max_length)
+        if isinstance(Y[0], str):
+            self.tokenized_Y = self.tokenizer(Y,
+                                              return_tensors='pt',
+                                              padding='max_length',
+                                              truncation=True,
+                                              max_length=self.config.tokenizer_max_length)
 
-        self.targets = self.tokenized_Y['input_ids'].clone()
+            self.targets = self.tokenized_Y['input_ids'].clone()
+        else:
+            self.targets = torch.Tensor(Y)
 
     def __len__(self):
         return len(self.targets)
 
     def __getitem__(self, item):
-        return {
+        item = {
             'input_ids': self.tokenized_X['input_ids'][item],
-            'attention_mask': self.tokenized_X['attention_mask'][item],
-            'decoder_input_ids': self.tokenized_Y['input_ids'][item],
-            'decoder_attention_mask': self.tokenized_Y['input_ids'][item],
             'labels': self.targets[item]
         }
+
+        if self.tokenized_Y:
+            item['decoder_input_ids'] = self.tokenized_Y['input_ids'][item]
+            item['decoder_attention_mask'] = self.tokenized_Y['input_ids'][item]
+
+        return item
 
 
 class DataTokenizing(Stage):

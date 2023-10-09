@@ -1,6 +1,11 @@
 from peft import TaskType
 from enum import Enum
-import torchmetrics
+
+
+class PipelineSetup(Enum):
+    FULL = 1
+    EVALUATION = 2
+    DATA_ANALYSIS = 3
 
 
 class Task(Enum):
@@ -10,12 +15,17 @@ class Task(Enum):
 
 
 class DatasetStorageFormat(Enum):
-    CSV_TABLE = 1
+    TABLE = 1
 
 
 class FinetuningMethod(Enum):
     FULL_FINETUNING = 1
     LORA = 2
+
+
+class LossMethod(Enum):
+    INTEGRATED = 'Integrated'
+    CROSS_ENTROPY = 'CrossEntropyLoss'
 
 
 class ModelOptimizer(Enum):
@@ -55,3 +65,9 @@ TASK_TO_METRICS_MAPPING = {
     Task.CAUSAL_LM: [Metric.PERPLEXITY],
     Task.SEQ_2_SEQ_LM: []
 }
+
+import torchmetrics
+import torch
+
+
+print(torchmetrics.Accuracy('multiclass', num_classes=2)(torch.Tensor([[0.3, 0.8], [0.6, 0]]), torch.Tensor([1, 0])))

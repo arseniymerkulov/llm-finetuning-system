@@ -19,9 +19,9 @@ class TestProcess:
             'value': self.configuration[attribute]
         }
 
-    @staticmethod
-    def start_run():
-        response = requests.post(f'{settings.app_endpoint}/api/start')
+    def start_run(self):
+        response = requests.post(f'{settings.app_endpoint}/api/start',
+                                 json={'pipeline_setup': self.configuration['pipeline_setup']})
         logger.info(response.text)
         assert 'error' not in response.json()
 

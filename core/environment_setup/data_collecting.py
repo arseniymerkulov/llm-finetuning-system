@@ -9,6 +9,7 @@ class DataCollecting(Stage):
     def execute(self):
         # dataset load type: enum = ...
         # load from kaggle, transformers
+        # todo: wait
         self.config.configure('kaggle_token_path', 'data/kaggle.json')
 
         self.config.wait('dataset_alias')

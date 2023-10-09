@@ -6,16 +6,16 @@ from lib import TestProcess
 
 @pytest.mark.full
 def test():
-    test_name = 'causal-lm-finetuning-gpt2-tiny-test'
+    test_name = 'classification-dataset-cancer-test'
     test_process = TestProcess(test_name, configuration={
         'project': test_name,
-        'pipeline_setup': 'FULL',
-        'task': 'CAUSAL_LM',
-        'dataset_alias': 'sunnysai12345/news-summary',
-        'dataset_file': 'news_summary.csv',
-        'dataset_table_columns': ['text', 'ctext'],
+        'pipeline_setup': 'DATA_ANALYSIS',
+        'task': 'CLASSIFICATION',
+        'dataset_alias': 'datatattle/covid-19-nlp-text-classification',
+        'dataset_file': 'Corona_NLP_train.csv',
+        'dataset_table_columns': ['OriginalTweet', 'Sentiment'],
         'dataset_partition': 1000,
-        'model_alias': 'sshleifer/tiny-gpt2'
+        'model_alias': 'cointegrated/rubert-tiny2'
     })
 
     test_process.start_run()

@@ -5,7 +5,7 @@ import torch
 import os
 
 
-from core.configuration.configuration import Configuration, FinetuningMethod
+from core.configuration import Configuration, FinetuningMethod, LossMethod, Task
 from core.main_process.pipeline import Stage
 
 
@@ -13,8 +13,15 @@ class NLPModel(pl.LightningModule):
     def __init__(self):
         super().__init__()
         self.config = Configuration.get_instance()
-        self.model = self.config.pretrain_model
         self.train_loss, self.val_loss = [], []
+
+        if self.config.add_linear_part:
+            self.model = self._create_combine_model(self.config.pretrain_model)
+        else:
+            self.model = self.config.pretrain_model
+
+        if self.config.loss_method == LossMethod.CROSS_ENTROPY:
+            self.loss_method = torch.nn.CrossEntropyLoss()
 
         if self.config.finetuning_method == FinetuningMethod.FULL_FINETUNING:
             for param in self.model.parameters():
@@ -39,18 +46,66 @@ class NLPModel(pl.LightningModule):
     def forward(self, *args, **kwargs):
         return self.model.forward(*args, **kwargs)
 
+    def _create_combine_model(self, pretrain_model):
+        class CombinedModel(torch.nn.Module):
+            def __init__(self, pretrain_model, linear_part):
+                super().__init__()
+                self.pretrain_model = pretrain_model
+                self.linear_part = linear_part
+
+            def forward(self, *args, **kwargs):
+                output = self.pretrain_model(*args, **kwargs)
+                return self.linear_part(output.last_hidden_state[:, 0, :])
+
+        # todo: assert that output dims can be retrieved
+        *_, last_layer = self.config.pretrain_model.children()
+        pretrain_output_dims = last_layer.dense.out_features
+
+        # find powers of 2 with condition: output_dims >= lower_estimate >= top_estimate >= num_classes
+        lower_estimate = 1 << (pretrain_output_dims.bit_length() - 1)
+        top_estimate = 1 << (self.config.num_classes - 1).bit_length()
+
+        linear_part = [
+            torch.nn.Linear(pretrain_output_dims, lower_estimate),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(self.config.linear_part_dropout)
+        ]
+
+        last_out_features = lower_estimate
+        while last_out_features / 2 ** self.config.linear_part_power > top_estimate:
+            linear_part.append(
+                torch.nn.Linear(last_out_features, int(last_out_features / 2 ** self.config.linear_part_power))
+            )
+            last_out_features = int(last_out_features / 2 ** self.config.linear_part_power)
+        linear_part.append(torch.nn.Linear(last_out_features, self.config.num_classes))
+        linear_part.append(torch.nn.LogSoftmax(dim=1))
+        linear_part = torch.nn.Sequential(*linear_part)
+
+        return CombinedModel(pretrain_model, linear_part)
+
+    def _preprocess_input(self, batch):
+        labels = batch['labels']
+
+        if self.config.loss_method != LossMethod.INTEGRATED:
+            # todo: research for possible problems with deleting data from batch. Do dataloader clone batches?
+            del batch['labels']
+
+        return batch, labels
+
+    def _preprocess_output(self, output, labels):
+        if self.config.loss_method == LossMethod.INTEGRATED:
+            return output.loss, output.logits
+
+        if self.config.add_linear_part:
+            return self.loss_method(output, labels), output
+
+        raise AssertionError(f'unsupported combination of parameters: loss_method={self.config.loss_method.name} '
+                             f'and add_linear_part={self.config.add_linear_part}')
+
     def training_step(self, batch, batch_idx):
-        input_ids, attn_mask, labels = (
-            batch['input_ids'],
-            batch['attention_mask'],
-            batch['labels'],
-        )
-
-        # todo: input parameters dependency from model
-        # todo: output parameters dependency from model
-
-        output = self.model.forward(input_ids=input_ids, attention_mask=attn_mask, labels=labels)
-        loss = output.loss
+        batch, labels = self._preprocess_input(batch)
+        output = self.model.forward(**batch)
+        loss, _ = self._preprocess_output(output, labels)
 
         self.log('train_loss', loss)
         self.train_loss.append(loss.detach().cpu())
@@ -59,17 +114,10 @@ class NLPModel(pl.LightningModule):
 
     @torch.no_grad()
     def validation_step(self, batch, batch_idx: int):
-        input_ids, attn_mask, labels = (
-            batch['input_ids'],
-            batch['attention_mask'],
-            batch['labels'],
-        )
+        batch, labels = self._preprocess_input(batch)
+        output = self.model.forward(**batch)
+        loss, _ = self._preprocess_output(output, labels)
 
-        # todo: input parameters dependency from model
-        # todo: output parameters dependency from model
-
-        output = self.model.forward(input_ids=input_ids, attention_mask=attn_mask, labels=labels)
-        loss = output.loss
         self.log('val_loss', loss)
         self.val_loss.append(loss.detach().cpu())
 
@@ -106,6 +154,7 @@ class Finetuning(Stage):
         logger = pl.loggers.WandbLogger(name=self.config.model_alias, project=self.config.project)
         self.config.configure('model', NLPModel())
 
+        # todo: estimate epochs and patience in HPO
         early_stopping_callback = pl.callbacks.EarlyStopping(monitor='val_loss', patience=3)
         model_checkpoint_callback = pl.callbacks.ModelCheckpoint(
             monitor='val_loss',

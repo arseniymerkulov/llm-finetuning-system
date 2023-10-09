@@ -2,7 +2,7 @@ import logging
 import abc
 
 
-from core.configuration.configuration import Configuration
+from core.configuration import Configuration
 from core.settings import Settings
 
 

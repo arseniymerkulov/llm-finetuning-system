@@ -3,20 +3,38 @@ from enum import Enum
 
 
 from core.configuration.configuration import Configuration
+from core.configuration.hyperparams import PipelineSetup
 from core.main_process.main_process import MainProcess
 
 
 app = Flask(__name__)
 
 
-# todo: specify needed stages
+# todo: improve assert msgs
+# todo: add data check pipeline setup
 @app.route('/api/start', methods=['POST'])
 def start_main_process():
-    thread = MainProcess()
-    thread.daemon = True
-    thread.start()
+    try:
+        config = Configuration.get_instance()
 
-    return {'message': 'finetuning process started'}
+        assert 'pipeline_setup' in request.json.keys(), 'request missing "pipeline_setup" field'
+        value = request.json['pipeline_setup']
+
+        assert isinstance(value, str), 'request field "pipeline_setup" is not <str> type'
+        assert value.upper() in PipelineSetup.__members__, f'invalid value for enum field "PipelineSetup"'
+
+        value = PipelineSetup[value.upper()]
+
+        config.configure('pipeline_setup', value)
+
+        thread = MainProcess(value)
+        thread.daemon = True
+        thread.start()
+
+        return {'message': f'finetuning process started with pipeline setup "{value.name}"'}
+
+    except AssertionError as e:
+        return {'error': str(e)}
 
 
 @app.route('/api/update', methods=['POST'])

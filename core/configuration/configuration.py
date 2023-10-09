@@ -1,17 +1,17 @@
 from peft import TaskType
-import torchmetrics
 import logging
 import time
 
 
 from core.settings import Settings
 from .hyperparams import (
+    PipelineSetup,
     Task,
     DatasetStorageFormat,
     FinetuningMethod,
     ModelOptimizer,
-    ModelAutoClass,
-    Metric
+    LossMethod,
+    ModelAutoClass
 )
 
 
@@ -25,6 +25,7 @@ class Configuration:
         self.project: str = ''
         self.project_dir: str = ''
 
+        self.pipeline_setup: PipelineSetup = PipelineSetup.FULL
         self.task: Task = Task.CAUSAL_LM
 
         # self.dataset_collecting_type: enum
@@ -33,12 +34,12 @@ class Configuration:
         self.dataset_alias: str = ''
         self.dataset_dir: str = ''
 
-        self.dataset_storage_format: DatasetStorageFormat = DatasetStorageFormat.CSV_TABLE
+        self.dataset_file: str = ''
+        self.dataset_storage_format: DatasetStorageFormat = DatasetStorageFormat.TABLE
         self.dataset_table_columns: list[str] = []
-
-        # dataset params - for classification: num_classes, labels; for causal lm, seq 2 seq?
         self.dataset_partition: int = 0
         self.num_classes: int = 2
+        self.categories: list[str] = []
 
         self.model_alias: str = ''
         self.model_auto_class: ModelAutoClass = ModelAutoClass.CAUSAL_LM
@@ -65,9 +66,13 @@ class Configuration:
         self.num_workers: int = 2
 
         self.finetuning_method: FinetuningMethod = FinetuningMethod.LORA
+        self.add_linear_part: bool = False
+        self.linear_part_dropout: float = 0.1
+        self.linear_part_power: int = 2
         # parameters for linear part ...
         # parameters for quantization ...
 
+        self.loss_method: LossMethod = LossMethod.INTEGRATED
         self.learning_rate: float = 1e-3
         self.epochs: int = 10
         self.optimizer: ModelOptimizer = ModelOptimizer.ADAM

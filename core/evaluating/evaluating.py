@@ -7,12 +7,13 @@ import re
 
 from core.main_process.pipeline import Stage
 from core.finetuning.finetuning import NLPModel
-from core.configuration.hyperparams import TASK_TO_METRICS_MAPPING, Metric
+from core.configuration import TASK_TO_METRICS_MAPPING, Metric
 
 
 class NLPEvaluatingModel(NLPModel):
     def __init__(self):
         # todo: research problems in comments
+        # todo: only cpu support
         # maybe two model classes is not optimal
         super().__init__()
         self.metrics = [self._create_metric(metric['metric']).cuda() for metric in self.config.metrics]
@@ -31,6 +32,9 @@ class NLPEvaluatingModel(NLPModel):
 
         for i, metric in enumerate(self.metrics):
             # if metric == ROUGE -> metric.compute()['rouge1']
+            import pdb
+            pdb.set_trace()
+
             metric_value = float(metric.compute().detach().cpu().numpy())
 
             metrics_dict_for_logging[self.config.metrics[i]['metric'].value] = metric_value
@@ -40,17 +44,14 @@ class NLPEvaluatingModel(NLPModel):
 
     @torch.no_grad()
     def test_step(self, batch, batch_idx: int):
-        input_ids, attn_mask, labels = (
-            batch['input_ids'],
-            batch['attention_mask'],
-            batch['labels'],
-        )
+        batch, labels = self._preprocess_input(batch)
+        output = self.model.forward(**batch)
+        loss, logits = self._preprocess_output(output, labels)
 
-        # todo: input parameters dependency from model
-        # todo: output parameters dependency from model
+        import pdb
+        pdb.set_trace()
 
-        output = self.model.forward(input_ids=input_ids, attention_mask=attn_mask, labels=labels)
-        [metric.update(output.logits, labels) for metric in self.metrics]
+        [metric.update(logits, labels) for metric in self.metrics]
         self._compute_metrics()
 
 
@@ -58,6 +59,7 @@ class Evaluating(Stage):
     def execute(self):
         # todo: cycle between finetuning and evaluation
         # todo: assert that checkpoint exists
+        # todo: tests actually test finetuning
 
         self.config.configure('metrics', [{'metric': metric} for metric in TASK_TO_METRICS_MAPPING[self.config.task]])
         self.config.configure('checkpoints_dir', f'{self.config.project_dir}/checkpoints')

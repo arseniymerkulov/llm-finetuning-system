@@ -2,7 +2,7 @@ import transformers
 
 
 from core.main_process.pipeline import Stage
-from core.configuration.hyperparams import TASK_TO_AUTO_CLASS_MAPPING
+from core.configuration import TASK_TO_AUTO_CLASS_MAPPING
 
 
 class ModelSelection(Stage):
