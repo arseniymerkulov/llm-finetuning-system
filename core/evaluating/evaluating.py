@@ -22,21 +22,28 @@ class NLPEvaluatingModel(NLPModel):
         if metric == Metric.PERPLEXITY:
             # do i need to specify ignore_index for special tokens for cleaner score?
             return torchmetrics.text.Perplexity()
+        elif metric == Metric.BLEU:
+            return torchmetrics.text.BLEUScore()
         elif metric == Metric.ACCURACY:
             return torchmetrics.classification.Accuracy(task='multiclass', num_classes=self.config.num_classes)
         else:
             raise AssertionError(f'metric class "{metric.value}" does not supported')
 
-    def _compute_metrics(self):
+    def _preprocess_logits(self, metric: Metric, logits):
+        if metric == Metric.BLEU:
+            logits = self.config.tokenizer.batch_decode(logits.type(torch.float).softmax(-1).argmax(-1))
+
+        return logits
+
+    def _compute_metrics(self, logits, labels):
         metrics_dict_for_logging = {}
 
         for i, metric in enumerate(self.metrics):
-            # if metric == ROUGE -> metric.compute()['rouge1']
-            import pdb
-            pdb.set_trace()
+            logits = self._preprocess_logits(self.config.metrics[i]['metric'], logits)
+            labels = self._preprocess_logits(self.config.metrics[i]['metric'], labels)
 
+            metric.update(logits, labels)
             metric_value = float(metric.compute().detach().cpu().numpy())
-
             metrics_dict_for_logging[self.config.metrics[i]['metric'].value] = metric_value
             self.config.metrics[i]['value'] = metric_value
 
@@ -47,12 +54,7 @@ class NLPEvaluatingModel(NLPModel):
         batch, labels = self._preprocess_input(batch)
         output = self.model.forward(**batch)
         loss, logits = self._preprocess_output(output, labels)
-
-        import pdb
-        pdb.set_trace()
-
-        [metric.update(logits, labels) for metric in self.metrics]
-        self._compute_metrics()
+        self._compute_metrics(logits, labels)
 
 
 class Evaluating(Stage):
@@ -71,6 +73,7 @@ class Evaluating(Stage):
         self.config.model.load_state_dict(torch.load(self.config.best_checkpoint_path)['state_dict'])
         self.config.model.eval()
 
+        # todo: when executing after finetuning, project name remains unchanged
         logger = pl.loggers.WandbLogger(name=self.config.model_alias, project=f'{self.config.project}-evaluating')
 
         trainer = pl.Trainer(

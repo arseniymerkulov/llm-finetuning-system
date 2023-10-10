@@ -12,6 +12,7 @@ from core.environment_setup import (
 )
 from core.finetuning import (HPO, FinetuningMethodSelection, Finetuning)
 from core.evaluating import Evaluating
+from core.environment_cleaning import EnvironmentCleaning
 
 
 # todo: transfer pipeline errors to status and return it with response
@@ -35,6 +36,8 @@ class MainProcess(Thread):
 
         elif pipeline_setup == PipelineSetup.EVALUATION:
             stages.append(Evaluating())
+
+        stages.append(EnvironmentCleaning())
 
         self.pipeline = Pipeline(*stages)
 

@@ -38,6 +38,7 @@ class Configuration:
         self.dataset_storage_format: DatasetStorageFormat = DatasetStorageFormat.TABLE
         self.dataset_table_columns: list[str] = []
         self.dataset_partition: int = 0
+        self.dataset_balance: bool = True
         self.num_classes: int = 2
         self.categories: list[str] = []
 
@@ -107,6 +108,10 @@ class Configuration:
         while not self.configured[attribute]:
             assert time.time() - start_time < timeout, f'field {attribute} has not been configured in time ({timeout}s)'
             time.sleep(0.1)
+
+    @staticmethod
+    def reset():
+        Configuration._instance = Configuration()
 
     @staticmethod
     def get_instance():

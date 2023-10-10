@@ -58,6 +58,7 @@ class NLPModel(pl.LightningModule):
                 return self.linear_part(output.last_hidden_state[:, 0, :])
 
         # todo: assert that output dims can be retrieved
+        # todo: change algo for linear part (+1 batch norm, activation after every linear layer)
         *_, last_layer = self.config.pretrain_model.children()
         pretrain_output_dims = last_layer.dense.out_features
 
@@ -89,6 +90,11 @@ class NLPModel(pl.LightningModule):
         if self.config.loss_method != LossMethod.INTEGRATED:
             # todo: research for possible problems with deleting data from batch. Do dataloader clone batches?
             del batch['labels']
+
+        # todo: useless for now, mb delete from dataset
+        if self.config.task != Task.CLASSIFICATION:
+            del batch['decoder_attention_mask']
+            del batch['decoder_input_ids']
 
         return batch, labels
 
@@ -133,14 +139,14 @@ class NLPModel(pl.LightningModule):
         outputs = self.train_loss
 
         loss = torch.stack([x for x in outputs]).mean()
-        print(f'train loss = {loss:.15f}\n')
+        print(f'train loss = {loss:.8f}\n')
         self.train_loss = []
 
     def on_validation_epoch_end(self):
         outputs = self.val_loss
 
         loss = torch.stack([x for x in outputs]).mean()
-        print(f'val loss = {loss:.15f}\n')
+        print(f'val loss = {loss:.8f}\n')
         self.val_loss = []
 
 

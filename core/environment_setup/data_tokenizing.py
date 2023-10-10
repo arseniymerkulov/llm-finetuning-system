@@ -31,20 +31,20 @@ class NLPDataset(Dataset):
 
             self.targets = self.tokenized_Y['input_ids'].clone()
         else:
-            self.targets = torch.Tensor(Y)
+            self.targets = torch.Tensor(Y).type(torch.LongTensor)
 
     def __len__(self):
         return len(self.targets)
 
-    def __getitem__(self, item):
+    def __getitem__(self, index):
         item = {
-            'input_ids': self.tokenized_X['input_ids'][item],
-            'labels': self.targets[item]
+            'input_ids': self.tokenized_X['input_ids'][index],
+            'labels': self.targets[index]
         }
 
         if self.tokenized_Y:
-            item['decoder_input_ids'] = self.tokenized_Y['input_ids'][item]
-            item['decoder_attention_mask'] = self.tokenized_Y['input_ids'][item]
+            item['decoder_input_ids'] = self.tokenized_Y['input_ids'][index]
+            item['decoder_attention_mask'] = self.tokenized_Y['input_ids'][index]
 
         return item
 

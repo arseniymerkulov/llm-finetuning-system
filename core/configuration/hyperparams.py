@@ -44,6 +44,7 @@ class Metric(Enum):
     ACCURACY = 'Accuracy'
     PERPLEXITY = 'Perplexity'
     ROUGE = 'Rouge'
+    BLEU = 'Bleu'
 
 
 TASK_TO_AUTO_CLASS_MAPPING = {
@@ -63,11 +64,5 @@ TASK_TO_LORA_TASK_MAPPING = {
 TASK_TO_METRICS_MAPPING = {
     Task.CLASSIFICATION: [Metric.ACCURACY],
     Task.CAUSAL_LM: [Metric.PERPLEXITY],
-    Task.SEQ_2_SEQ_LM: []
+    Task.SEQ_2_SEQ_LM: [Metric.BLEU]
 }
-
-import torchmetrics
-import torch
-
-
-print(torchmetrics.Accuracy('multiclass', num_classes=2)(torch.Tensor([[0.3, 0.8], [0.6, 0]]), torch.Tensor([1, 0])))

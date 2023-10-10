@@ -9,12 +9,13 @@ def test():
     test_name = 'classification-rubert-tiny-test'
     test_process = TestProcess(test_name, configuration={
         'project': test_name,
-        'pipeline_setup': 'EVALUATION',
+        'pipeline_setup': 'FULL',
         'task': 'CLASSIFICATION',
         'dataset_alias': 'rmisra/imdb-spoiler-dataset',
         'dataset_file': 'IMDB_reviews.json',
         'dataset_table_columns': ['review_text', 'is_spoiler'],
         'dataset_partition': 1000,
+        'dataset_balance': True,
         'model_alias': 'cointegrated/rubert-tiny2'
     })
 
@@ -26,4 +27,5 @@ def test():
     test_process.update_configuration('dataset_file')
     test_process.update_configuration('dataset_table_columns')
     test_process.update_configuration('dataset_partition')
+    test_process.update_configuration('dataset_balance')
     test_process.update_configuration('model_alias')
