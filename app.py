@@ -1,5 +1,6 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify, make_response
 from enum import Enum
+import logging
 
 
 from core.configuration.configuration import Configuration
@@ -8,10 +9,11 @@ from core.main_process.main_process import MainProcess
 
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # todo: improve assert msgs
-# todo: add data check pipeline setup
 @app.route('/api/start', methods=['POST'])
 def start_main_process():
     try:
@@ -27,14 +29,21 @@ def start_main_process():
 
         config.configure('pipeline_setup', value)
 
+        logger.info('starting new thread for main process')
         thread = MainProcess(value)
         thread.daemon = True
         thread.start()
 
-        return {'message': f'finetuning process started with pipeline setup "{value.name}"'}
+        return make_response(jsonify({
+            'success': True,
+            'message': f'finetuning process started with pipeline setup "{value.name}"'
+        }), 200)
 
     except AssertionError as e:
-        return {'error': str(e)}
+        return make_response(jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400)
 
 
 @app.route('/api/update', methods=['POST'])
@@ -48,6 +57,7 @@ def update_configuration():
         field = request.json['field']
         value = request.json['value']
 
+        # todo: move part of type asserts in Configuration.configure method
         assert isinstance(field, str), 'request field "field" is not <str> type'
         assert hasattr(config, field), f'there is no such field "{field}" in the configuration'
         assert getattr(config, field) is not None, 'configuring NoneType fields from API is forbidden'
@@ -64,7 +74,31 @@ def update_configuration():
                 f'request field "value" is not {desired_class} type'
 
         config.configure(field, value)
-        return {'message': 'configuration updated'}
+
+        return make_response(jsonify({
+            'success': True,
+            'message': 'configuration updated'
+        }), 200)
 
     except AssertionError as e:
-        return {'error': str(e)}
+        return make_response(jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400)
+
+
+@app.route('/api/approve', methods=['POST'])
+def approve_stage():
+    config = Configuration.get_instance()
+    config.configure_status('approved', True)
+    return make_response(jsonify({
+            'success': True,
+            'message': 'stage approved'
+        }), 200)
+
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    config = Configuration.get_instance()
+    logger.info(f'current status: {config.status}')
+    return make_response(jsonify(config.status), 200 if config.status['success'] else 500)

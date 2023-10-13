@@ -15,12 +15,12 @@ from core.evaluating import Evaluating
 from core.environment_cleaning import EnvironmentCleaning
 
 
-# todo: transfer pipeline errors to status and return it with response
 class MainProcess(Thread):
     def __init__(self, pipeline_setup: PipelineSetup):
         super().__init__()
 
         stages = [
+            EnvironmentCleaning(),
             EnvironmentSetup(),
             DataCollecting(),
             DataProcessing(),
@@ -38,7 +38,6 @@ class MainProcess(Thread):
             stages.append(Evaluating())
 
         stages.append(EnvironmentCleaning())
-
         self.pipeline = Pipeline(*stages)
 
     def run(self):

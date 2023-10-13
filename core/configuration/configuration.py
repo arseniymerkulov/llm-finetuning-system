@@ -1,4 +1,5 @@
 from peft import TaskType
+from typing import Literal
 import logging
 import time
 
@@ -16,6 +17,7 @@ from .hyperparams import (
 
 
 class Configuration:
+    # todo: setting level on app level
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     settings = Settings.get_instance()
@@ -95,11 +97,43 @@ class Configuration:
         for key in self.configured:
             self.configured[key] = False
 
+        self.status: dict = {}
+        self.configure_status('stage', '')
+        self.configure_status('phase', '')
+        self.configure_status('error', None)
+        self.configure_status('approved', False)
+
+    def configure_status(self, attribute: Literal['stage', 'phase', 'error', 'approved'], value):
+        status = {
+            'stage': self.status['stage'] if 'stage' in self.status else '',
+            'phase': self.status['phase'] if 'phase' in self.status else '',
+            'success': self.status['success'] if 'success' in self.status else True,
+            'error': self.status['error'] if 'error' in self.status else None,
+            'approved': False,
+            attribute: value
+        }
+
+        if attribute == 'error' and value is not None:
+            status['success'] = False
+
+        self.status = status
+
     def configure(self, attribute, value):
         assert hasattr(self, attribute), f'there is no such field "{attribute}" in the configuration'
         self.__setattr__(attribute, value)
         self.configured[attribute] = True
         Configuration.logger.info(f'field "{attribute}" configured')
+
+    def wait_for_approval(self, timeout=settings.stage_approval_timeout):
+        Configuration.logger.info(f'waiting for stage "{self.status["stage"]}" to be approved')
+        start_time = time.time()
+
+        while not self.status['approved']:
+            assert time.time() - start_time < timeout, \
+                f'stage {self.status["stage"]} has not been approved in time ({timeout}s)'
+            time.sleep(0.1)
+
+        Configuration.logger.info(f'stage "{self.status["stage"]}" is approved')
 
     def wait(self, attribute, timeout=settings.field_configure_timeout):
         Configuration.logger.info(f'waiting for field "{attribute}" to be configured')
@@ -108,10 +142,11 @@ class Configuration:
         while not self.configured[attribute]:
             assert time.time() - start_time < timeout, f'field {attribute} has not been configured in time ({timeout}s)'
             time.sleep(0.1)
+        Configuration.logger.info(f'field "{attribute}" is configured in {time.time() - start_time}s')
 
     @staticmethod
     def reset():
-        Configuration._instance = Configuration()
+        Configuration._instance.__init__()
 
     @staticmethod
     def get_instance():

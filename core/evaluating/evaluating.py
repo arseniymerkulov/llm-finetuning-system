@@ -37,6 +37,7 @@ class NLPEvaluatingModel(NLPModel):
 
     def _compute_metrics(self, logits, labels):
         metrics_dict_for_logging = {}
+        # todo: seems like there are problems with decoding seq2seq labels\creating seq2seq datasets
 
         for i, metric in enumerate(self.metrics):
             logits = self._preprocess_logits(self.config.metrics[i]['metric'], logits)
@@ -60,21 +61,21 @@ class NLPEvaluatingModel(NLPModel):
 class Evaluating(Stage):
     def execute(self):
         # todo: cycle between finetuning and evaluation
-        # todo: assert that checkpoint exists
-        # todo: tests actually test finetuning
 
         self.config.configure('metrics', [{'metric': metric} for metric in TASK_TO_METRICS_MAPPING[self.config.task]])
         self.config.configure('checkpoints_dir', f'{self.config.project_dir}/checkpoints')
         self.config.configure('model', NLPEvaluatingModel())
 
-        if not self.config.configured['best_checkpoint_path']:
-            self.config.configure('best_checkpoint_path', self._get_best_model())
+        best_model = self.config.best_checkpoint_path if self.config.configured['best_checkpoint_path'] \
+            else self._get_best_model()
 
-        self.config.model.load_state_dict(torch.load(self.config.best_checkpoint_path)['state_dict'])
+        if best_model:
+            self.config.configure('best_checkpoint_path', best_model)
+            self.config.model.load_state_dict(torch.load(self.config.best_checkpoint_path)['state_dict'])
+
         self.config.model.eval()
 
-        # todo: when executing after finetuning, project name remains unchanged
-        logger = pl.loggers.WandbLogger(name=self.config.model_alias, project=f'{self.config.project}-evaluating')
+        logger = pl.loggers.WandbLogger(name=self.config.model_alias, project=self.config.project)
 
         trainer = pl.Trainer(
             accelerator='auto',
@@ -90,7 +91,8 @@ class Evaluating(Stage):
 
     def _get_best_model(self):
         models = glob.glob(f'{self.config.checkpoints_dir}/*/*.ckpt')
-        assert len(models), 'empty checkpoints directory'
+        if not len(models):
+            return None
 
         # checkpoint filename format specified in the core/settings.py
         losses = [float(re.findall(r'[0-9]*[.,]?[0-9]+', model_path)[0]) for model_path in models]

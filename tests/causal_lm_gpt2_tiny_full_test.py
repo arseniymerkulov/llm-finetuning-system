@@ -5,8 +5,9 @@ from .lib import TestProcess
 
 
 @pytest.mark.full
+@pytest.mark.tiny
 def test():
-    test_name = 'causal-lm-finetuning-gpt2-medium-test'
+    test_name = 'causal-lm-finetuning-gpt2-tiny-test'
     test_process = TestProcess(test_name, configuration={
         'project': test_name,
         'pipeline_setup': 'FULL',
@@ -14,8 +15,8 @@ def test():
         'dataset_alias': 'sunnysai12345/news-summary',
         'dataset_file': 'news_summary.csv',
         'dataset_table_columns': ['text', 'ctext'],
-        'dataset_partition': 10000,
-        'model_alias': 'gpt2-medium'
+        'dataset_partition': 1000,
+        'model_alias': 'sshleifer/tiny-gpt2'
     })
 
     test_process.start_run()
@@ -25,6 +26,7 @@ def test():
     test_process.approve_stage()
 
     test_process.set_stage('EnvironmentSetup')
+    test_process.wait('execute')
     test_process.update_configuration('project')
     test_process.update_configuration('pipeline_setup')
     test_process.update_configuration('task')
@@ -32,19 +34,21 @@ def test():
     test_process.approve_stage()
 
     test_process.set_stage('DataCollecting')
+    test_process.wait('execute')
     test_process.update_configuration('dataset_alias')
     test_process.wait('approve')
     test_process.approve_stage()
 
     test_process.set_stage('DataProcessing')
+    test_process.wait('execute')
     test_process.update_configuration('dataset_file')
     test_process.update_configuration('dataset_table_columns')
     test_process.update_configuration('dataset_partition')
-    test_process.update_configuration('dataset_balance')
     test_process.wait('approve')
     test_process.approve_stage()
 
     test_process.set_stage('ModelSelection')
+    test_process.wait('execute')
     test_process.update_configuration('model_alias')
     test_process.wait('approve')
     test_process.approve_stage()
@@ -66,5 +70,9 @@ def test():
     test_process.approve_stage()
 
     test_process.set_stage('Evaluating')
+    test_process.wait('approve')
+    test_process.approve_stage()
+
+    test_process.set_stage('EnvironmentCleaning')
     test_process.wait('approve')
     test_process.approve_stage()
