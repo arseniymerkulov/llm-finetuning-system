@@ -38,7 +38,6 @@ class Pipeline:
                 self.config.configure_status('error', str(e))
                 self.logger.error(str(e))
                 return
-        return
 
 
 class Stage(abc.ABC):

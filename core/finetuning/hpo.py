@@ -10,7 +10,7 @@ class HPO(Stage):
     def execute(self):
         # TODO: which parameters is HPO and which is method selection?
         # training hyperparams
-        self.config.configure('learning_rate', 1e-3)
+        self.config.configure('learning_rate', 1e-4)
         self.config.configure('epochs', 5)
         self.config.configure('optimizer', ModelOptimizer.ADAM)
         # configuring scheduler ...

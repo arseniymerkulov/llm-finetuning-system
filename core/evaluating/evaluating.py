@@ -7,14 +7,13 @@ import re
 
 from core.main_process.pipeline import Stage
 from core.finetuning.finetuning import NLPModel
-from core.configuration import TASK_TO_METRICS_MAPPING, Metric
+from core.configuration import TASK_TO_METRICS_MAPPING, Metric, Task
 
 
 class NLPEvaluatingModel(NLPModel):
     def __init__(self):
         # todo: research problems in comments
         # todo: only cpu support
-        # maybe two model classes is not optimal
         super().__init__()
         self.metrics = [self._create_metric(metric['metric']).cuda() for metric in self.config.metrics]
 
@@ -29,33 +28,39 @@ class NLPEvaluatingModel(NLPModel):
         else:
             raise AssertionError(f'metric class "{metric.value}" does not supported')
 
-    def _preprocess_logits(self, metric: Metric, logits):
+    def _preprocess_input_for_metric(self, metric: Metric, batch):
+        batch, labels = self._preprocess_input(batch)
+
         if metric == Metric.BLEU:
-            logits = self.config.tokenizer.batch_decode(logits.type(torch.float).softmax(-1).argmax(-1))
+            preds = self.model.generate(
+                input_ids=batch['input_ids'],
+                attention_mask=batch['attention_mask'],
+                max_length=self.config.tokenizer_max_length,
+                repetition_penalty=3.0,
+                temperature=1.0,
+                early_stopping=True)
 
-        return logits
+            preds = self.config.tokenizer.batch_decode(preds)
+            labels = self.config.tokenizer.batch_decode(labels)
+        else:
+            output = self.model.forward(**batch)
+            loss, preds = self._preprocess_output(output, labels)
 
-    def _compute_metrics(self, logits, labels):
+        return preds, labels
+
+    @torch.no_grad()
+    def test_step(self, batch, batch_idx: int):
         metrics_dict_for_logging = {}
-        # todo: seems like there are problems with decoding seq2seq labels\creating seq2seq datasets
 
         for i, metric in enumerate(self.metrics):
-            logits = self._preprocess_logits(self.config.metrics[i]['metric'], logits)
-            labels = self._preprocess_logits(self.config.metrics[i]['metric'], labels)
+            preds, labels = self._preprocess_input_for_metric(self.config.metrics[i]['metric'], batch)
 
-            metric.update(logits, labels)
+            metric.update(preds, labels)
             metric_value = float(metric.compute().detach().cpu().numpy())
             metrics_dict_for_logging[self.config.metrics[i]['metric'].value] = metric_value
             self.config.metrics[i]['value'] = metric_value
 
         self.logger.log_metrics(metrics_dict_for_logging)
-
-    @torch.no_grad()
-    def test_step(self, batch, batch_idx: int):
-        batch, labels = self._preprocess_input(batch)
-        output = self.model.forward(**batch)
-        loss, logits = self._preprocess_output(output, labels)
-        self._compute_metrics(logits, labels)
 
 
 class Evaluating(Stage):

@@ -39,6 +39,7 @@ class NLPDataset(Dataset):
     def __getitem__(self, index):
         item = {
             'input_ids': self.tokenized_X['input_ids'][index],
+            'attention_mask': self.tokenized_X['attention_mask'][index],
             'labels': self.targets[index]
         }
 

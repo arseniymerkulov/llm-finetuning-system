@@ -58,31 +58,26 @@ class NLPModel(pl.LightningModule):
                 return self.linear_part(output.last_hidden_state[:, 0, :])
 
         # todo: assert that output dims can be retrieved
-        # todo: change algo for linear part (+1 batch norm, activation after every linear layer)
         *_, last_layer = self.config.pretrain_model.children()
         pretrain_output_dims = last_layer.dense.out_features
 
         # find powers of 2 with condition: output_dims >= lower_estimate >= top_estimate >= num_classes
         lower_estimate = 1 << (pretrain_output_dims.bit_length() - 1)
         top_estimate = 1 << (self.config.num_classes - 1).bit_length()
+        second_linear_layer_out = int(lower_estimate if top_estimate == lower_estimate else lower_estimate / 2)
 
         linear_part = [
+            torch.nn.Dropout(self.config.linear_part_dropout),
             torch.nn.Linear(pretrain_output_dims, lower_estimate),
+            torch.nn.BatchNorm1d(lower_estimate),
             torch.nn.ReLU(),
-            torch.nn.Dropout(self.config.linear_part_dropout)
+            torch.nn.Linear(lower_estimate, second_linear_layer_out),
+            torch.nn.ReLU(),
+            torch.nn.Linear(second_linear_layer_out, self.config.num_classes),
+            torch.nn.LogSoftmax(dim=1)
         ]
 
-        last_out_features = lower_estimate
-        while last_out_features / 2 ** self.config.linear_part_power > top_estimate:
-            linear_part.append(
-                torch.nn.Linear(last_out_features, int(last_out_features / 2 ** self.config.linear_part_power))
-            )
-            last_out_features = int(last_out_features / 2 ** self.config.linear_part_power)
-        linear_part.append(torch.nn.Linear(last_out_features, self.config.num_classes))
-        linear_part.append(torch.nn.LogSoftmax(dim=1))
-        linear_part = torch.nn.Sequential(*linear_part)
-
-        return CombinedModel(pretrain_model, linear_part)
+        return CombinedModel(pretrain_model, torch.nn.Sequential(*linear_part))
 
     def _preprocess_input(self, batch):
         labels = batch['labels']
@@ -131,6 +126,7 @@ class NLPModel(pl.LightningModule):
         assert any([parameter.requires_grad for parameter in self.model.parameters()]), \
             'all weights in model are frozen'
         assert hasattr(torch.optim, self.config.optimizer.value), 'invalid optimizer name'
+        # todo: different lr for different model parts
         optimizer = getattr(torch.optim, self.config.optimizer.value)(self.model.parameters(),
                                                                       lr=self.config.learning_rate)
         return optimizer
