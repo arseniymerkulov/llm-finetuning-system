@@ -7,6 +7,7 @@ from .lib import TestProcess
 @pytest.mark.evaluation
 @pytest.mark.tiny
 def test():
+    # todo: possible problem with columns, see examples on wandb
     test_name = 'seq-2-seq-lm-t5-tiny-test'
     test_process = TestProcess(test_name, configuration={
         'project': test_name,
@@ -19,4 +20,5 @@ def test():
         'model_alias': 'google/t5-efficient-tiny'
     })
 
-    test_process.run_pipeline()
+    test_process.start_run()
+    test_process.execute_pipeline()

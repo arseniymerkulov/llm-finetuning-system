@@ -1,8 +1,6 @@
-import logging
 
 
 class Settings:
-    logging.basicConfig(level=logging.INFO)
     _instance = None
 
     def __init__(self):

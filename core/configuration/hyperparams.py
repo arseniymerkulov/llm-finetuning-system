@@ -42,9 +42,12 @@ class ModelAutoClass(Enum):
 
 class Metric(Enum):
     ACCURACY = 'Accuracy'
+    RECALL = 'Recall'
+    PRECISION = 'Precision'
+    F1_SCORE = 'F1Score'
     PERPLEXITY = 'Perplexity'
-    ROUGE = 'Rouge'
-    BLEU = 'Bleu'
+    ROUGE = 'ROUGEScore'
+    BLEU = 'BLEUScore'
 
 
 TASK_TO_AUTO_CLASS_MAPPING = {
@@ -62,7 +65,7 @@ TASK_TO_LORA_TASK_MAPPING = {
 
 
 TASK_TO_METRICS_MAPPING = {
-    Task.CLASSIFICATION: [Metric.ACCURACY],
+    Task.CLASSIFICATION: [Metric.ACCURACY, Metric.RECALL, Metric.PRECISION, Metric.F1_SCORE],
     Task.CAUSAL_LM: [Metric.PERPLEXITY],
-    Task.SEQ_2_SEQ_LM: [Metric.BLEU]
+    Task.SEQ_2_SEQ_LM: [Metric.BLEU, Metric.ROUGE]
 }

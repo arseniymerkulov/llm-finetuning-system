@@ -15,10 +15,11 @@ class TestProcess:
         self.configuration = configuration
         self.stage = ''
 
-    def _create_data(self, attribute):
+    def _create_data(self, attribute, forced=False):
         return {
             'field': attribute,
-            'value': self.configuration[attribute]
+            'value': self.configuration[attribute],
+            'forced': forced
         }
 
     def _request(self, method: Literal['get', 'post'], route, json=None):
@@ -29,10 +30,15 @@ class TestProcess:
         return response
 
     def start_run(self):
-        return self._request('post', 'start', {'pipeline_setup': self.configuration['pipeline_setup']})
+        response = self._request('post', 'start', {'pipeline_setup': self.configuration['pipeline_setup']})
 
-    def update_configuration(self, attribute):
-        return self._request('post', 'update', json=self._create_data(attribute))
+        self.set_stage('EnvironmentCleaning')
+        self.wait('approve')
+        self.approve_stage()
+        return response
+
+    def update_configuration(self, attribute, forced=False):
+        return self._request('post', 'update', json=self._create_data(attribute, forced))
 
     def set_stage(self, stage: Literal['EnvironmentCleaning',
                                        'EnvironmentSetup',
@@ -43,7 +49,7 @@ class TestProcess:
                                        'HPO',
                                        'FinetuningMethodSelection',
                                        'Finetuning',
-                                       'Evaluating']):
+                                       'Evaluation']):
         self.stage = stage
 
     def approve_stage(self):
@@ -62,13 +68,7 @@ class TestProcess:
             time.sleep(0.5)
         self.logger.info(f'stage changed phase, current status: {status}')
 
-    def run_pipeline(self):
-        self.start_run()
-
-        self.set_stage('EnvironmentCleaning')
-        self.wait('approve')
-        self.approve_stage()
-
+    def execute_pipeline(self):
         self.set_stage('EnvironmentSetup')
         self.wait('execute')
         self.update_configuration('project')
@@ -94,8 +94,8 @@ class TestProcess:
         if 'dataset_partition' in self.configuration:
             self.update_configuration('dataset_partition')
 
-        if 'dataset_balance' in self.configuration:
-            self.update_configuration('dataset_balance')
+        if 'dataset_need_balance' in self.configuration:
+            self.update_configuration('dataset_need_balance')
 
         self.wait('approve')
         self.approve_stage()
@@ -123,13 +123,12 @@ class TestProcess:
             self.wait('approve')
             self.approve_stage()
 
-            # todo: rename stage to Evaluation
-            self.set_stage('Evaluating')
+            self.set_stage('Evaluation')
             self.wait('approve')
             self.approve_stage()
 
         if self.configuration['pipeline_setup'] == 'EVALUATION':
-            self.set_stage('Evaluating')
+            self.set_stage('Evaluation')
             self.wait('approve')
             self.approve_stage()
 

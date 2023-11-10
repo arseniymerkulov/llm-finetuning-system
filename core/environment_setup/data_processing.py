@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import glob
 
 
@@ -8,6 +9,7 @@ from core.configuration import DatasetStorageFormat, Task
 
 class DataProcessing(Stage):
     def execute(self):
+        # todo: support datasets for causal lm: plain text files, instruction datasets with 2 inputs
         # todo: support 'text files in category folders' format
         # todo: field is useless
         self.config.configure('dataset_storage_format', DatasetStorageFormat.TABLE)
@@ -16,9 +18,14 @@ class DataProcessing(Stage):
 
         self.config.wait('dataset_partition')
         if self.config.task == Task.CLASSIFICATION:
-            self.config.wait('dataset_balance')
+            self.config.wait('dataset_need_balance')
 
         self._load_dataset_with_pandas()
+        dataset_samples = [len(sample) for sample in self.config.X]
+        self.config.configure('dataset_instances', len(self.config.X))
+        self.config.configure('dataset_sample_min_length', min(dataset_samples))
+        self.config.configure('dataset_sample_avg_length', int(np.mean(dataset_samples)))
+        self.config.configure('dataset_sample_max_length', max(dataset_samples))
 
     def _load_dataset_with_pandas(self):
         path = glob.glob(f'{self.config.dataset_dir}/*.csv') + \
@@ -36,6 +43,7 @@ class DataProcessing(Stage):
             df = pd.read_csv(dataset_path, encoding='latin-1')
         else:
             df = pd.read_json(dataset_path, lines=True)
+        self.logger.info(df.head())
 
         df = df[self.config.dataset_table_columns]
         df = df.dropna()
@@ -47,12 +55,13 @@ class DataProcessing(Stage):
             self.config.configure('num_classes', num_classes)
             self.config.configure('categories', categories)
 
-            if self.config.dataset_balance:
+            if self.config.dataset_need_balance:
                 df = self._balance_dataset(df)
 
             self.logger.info(df[self.config.dataset_table_columns[1]].value_counts())
             self.logger.info(df.head())
 
+            self.config.configure('dataset_balance', dict(df[self.config.dataset_table_columns[1]].value_counts()))
             self.config.configure('X', df[self.config.dataset_table_columns[0]].tolist())
             self.config.configure('Y', self._process_classification_labels(
                 df[self.config.dataset_table_columns[1]].tolist()

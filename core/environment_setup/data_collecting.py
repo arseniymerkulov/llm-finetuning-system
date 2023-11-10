@@ -7,6 +7,7 @@ from core.main_process.pipeline import Stage
 
 class DataCollecting(Stage):
     def execute(self):
+        # todo: move datasets out of project folder to reuse in different projects
         # dataset load type: enum = ...
         # load from kaggle, transformers
         # todo: wait

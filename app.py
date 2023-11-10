@@ -13,7 +13,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# todo: improve assert msgs
 @app.route('/api/start', methods=['POST'])
 def start_main_process():
     try:
@@ -23,13 +22,14 @@ def start_main_process():
         value = request.json['pipeline_setup']
 
         assert isinstance(value, str), 'request field "pipeline_setup" is not <str> type'
-        assert value.upper() in PipelineSetup.__members__, f'invalid value for enum field "PipelineSetup"'
+        assert value.upper() in PipelineSetup.__members__, \
+            f'invalid value "{value.upper()}" for enum field "PipelineSetup"'
 
         value = PipelineSetup[value.upper()]
 
         config.configure('pipeline_setup', value)
 
-        logger.info('starting new thread for main process')
+        logger.info('starting new thread for main process...')
         thread = MainProcess(value)
         thread.daemon = True
         thread.start()
@@ -57,23 +57,28 @@ def update_configuration():
         field = request.json['field']
         value = request.json['value']
 
-        # todo: move part of type asserts in Configuration.configure method
-        assert isinstance(field, str), 'request field "field" is not <str> type'
-        assert hasattr(config, field), f'there is no such field "{field}" in the configuration'
-        assert getattr(config, field) is not None, 'configuring NoneType fields from API is forbidden'
+        assert isinstance(field, str), f'{request.json}: request field "field" is not <str> type'
+        assert hasattr(config, field), f'{request.json}: there is no such field "{field}" in the configuration'
+        assert getattr(config, field) is not None, f'{request.json}: configuring NoneType fields from API is forbidden'
         desired_class = getattr(config, field).__class__
 
         if issubclass(desired_class, Enum):
-            assert isinstance(value, str), 'request field "value" is not <str> type'
-            assert value.upper() in desired_class.__members__, f'invalid "value" for enum field "{field}"'
+            assert isinstance(value, str), f'{request.json}: request field "value" is not <str> type'
+            assert value.upper() in desired_class.__members__, \
+                f'{request.json}: invalid "value" for enum field "{field}"'
 
             value = desired_class[value.upper()]
 
         else:
             assert isinstance(value, desired_class), \
-                f'request field "value" is not {desired_class} type'
+                f'{request.json}: request field "value" is not {desired_class} type'
 
-        config.configure(field, value)
+        forced = False
+        if 'forced' in request.json.keys():
+            forced = request.json['forced']
+            assert isinstance(forced, bool), f'{request.json}: request field "forced" is not <bool> type'
+
+        config.configure(field, value, forced)
 
         return make_response(jsonify({
             'success': True,

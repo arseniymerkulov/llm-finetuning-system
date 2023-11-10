@@ -28,6 +28,7 @@ class NLPModel(pl.LightningModule):
                 param.requires_grad = True
 
         elif self.config.finetuning_method == FinetuningMethod.LORA:
+            # todo: compatibility for LoRa state dicts and fn state dicts
             # todo: gpt-2 and gpt2 aliases exists
             assert any(key in self.config.model_alias for key
                        in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING.keys()), \
@@ -80,18 +81,19 @@ class NLPModel(pl.LightningModule):
         return CombinedModel(pretrain_model, torch.nn.Sequential(*linear_part))
 
     def _preprocess_input(self, batch):
-        labels = batch['labels']
+        batch_copy = batch.copy()
+        labels = batch_copy['labels']
 
         if self.config.loss_method != LossMethod.INTEGRATED:
             # todo: research for possible problems with deleting data from batch. Do dataloader clone batches?
-            del batch['labels']
+            del batch_copy['labels']
 
         # todo: useless for now, mb delete from dataset
         if self.config.task != Task.CLASSIFICATION:
-            del batch['decoder_attention_mask']
-            del batch['decoder_input_ids']
+            del batch_copy['decoder_attention_mask']
+            del batch_copy['decoder_input_ids']
 
-        return batch, labels
+        return batch_copy, labels
 
     def _preprocess_output(self, output, labels):
         if self.config.loss_method == LossMethod.INTEGRATED:
@@ -131,6 +133,9 @@ class NLPModel(pl.LightningModule):
                                                                       lr=self.config.learning_rate)
         return optimizer
 
+    def on_train_start(self):
+        self.logger.log_hyperparams(self.config.get_log())
+
     def on_train_epoch_end(self):
         outputs = self.train_loss
 
@@ -155,6 +160,9 @@ class Finetuning(Stage):
 
         logger = pl.loggers.WandbLogger(name=self.config.model_alias, project=self.config.project)
         self.config.configure('model', NLPModel())
+        self.config.configure('model_trainable_parameters', sum(parameter.numel() for parameter
+                                                                in self.config.model.parameters()
+                                                                if parameter.requires_grad))
 
         # todo: estimate epochs and patience in HPO
         early_stopping_callback = pl.callbacks.EarlyStopping(monitor='val_loss', patience=3)

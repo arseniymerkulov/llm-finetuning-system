@@ -8,6 +8,8 @@ from core.configuration import (
 
 class HPO(Stage):
     def execute(self):
+        # todo: some parameters defined in later stages are useful for predicting hp on current stage
+        #       probably need to rework HPO, method_selection, finetuning stages
         # TODO: which parameters is HPO and which is method selection?
         # training hyperparams
         self.config.configure('learning_rate', 1e-4)
@@ -17,7 +19,6 @@ class HPO(Stage):
 
         if self.config.add_linear_part:
             self.config.configure('linear_part_dropout', 0.1)
-            self.config.configure('linear_part_power', 4)
 
         if self.config.finetuning_method == FinetuningMethod.LORA:
             lora_task = TASK_TO_LORA_TASK_MAPPING[self.config.task]

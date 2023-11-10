@@ -15,6 +15,9 @@ class ModelSelection(Stage):
         model = getattr(transformers, auto_class).from_pretrained(self.config.model_alias)
 
         self.config.configure('pretrain_model', model)
+        self.config.configure('model_parameters',
+                              sum(parameter.numel() for parameter in self.config.pretrain_model.parameters()))
+        self.config.configure('model_layers', sum(1 for _ in self.config.pretrain_model.modules()))
 
     def validate(self) -> bool:
         pass

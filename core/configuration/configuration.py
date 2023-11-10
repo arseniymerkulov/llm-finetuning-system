@@ -1,5 +1,6 @@
 from peft import TaskType
 from typing import Literal
+from enum import Enum
 import logging
 import time
 
@@ -17,8 +18,6 @@ from .hyperparams import (
 
 
 class Configuration:
-    # todo: setting level on app level
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     settings = Settings.get_instance()
     _instance = None
@@ -39,23 +38,33 @@ class Configuration:
         self.dataset_file: str = ''
         self.dataset_storage_format: DatasetStorageFormat = DatasetStorageFormat.TABLE
         self.dataset_table_columns: list[str] = []
+        self.dataset_instances: int = 0
         self.dataset_partition: int = 0
-        self.dataset_balance: bool = True
-        self.num_classes: int = 2
+        self.dataset_balance: dict = {}
+        self.dataset_need_balance: bool = True
+        self.dataset_sample_min_length: int = 0
+        self.dataset_sample_avg_length: int = 0
+        self.dataset_sample_max_length: int = 0
+        self.num_classes: int = 0
         self.categories: list[str] = []
 
         self.model_alias: str = ''
         self.model_auto_class: ModelAutoClass = ModelAutoClass.CAUSAL_LM
+        self.model_parameters: int = 0
+        self.model_trainable_parameters: int = 0
+        self.model_layers: int = 0
+
         self.pretrain_model = None
 
         self.tokenizer = None
-        self.tokenizer_max_length: int = 128
+        self.tokenizer_max_length: int = 0
+        self.tokenizer_vocab_size: int = 0
 
         self.X: list[str] = []
         self.Y: list[str or int] = []
 
-        self.validation_dataset_size: float = 0.3
-        self.test_dataset_size: float = 0.1
+        self.validation_dataset_size: float = 0.0
+        self.test_dataset_size: float = 0.0
 
         self.train_dataset = None
         self.validation_dataset = None
@@ -65,26 +74,25 @@ class Configuration:
         self.validation_dataloader = None
         self.test_dataloader = None
 
-        self.batch_size: int = 12
-        self.num_workers: int = 2
+        self.batch_size: int = 0
+        # unused field
+        self.num_workers: int = 0
 
         self.finetuning_method: FinetuningMethod = FinetuningMethod.LORA
         self.add_linear_part: bool = False
-        self.linear_part_dropout: float = 0.1
-        self.linear_part_power: int = 2
-        # parameters for linear part ...
+        self.linear_part_dropout: float = 0.0
         # parameters for quantization ...
 
         self.loss_method: LossMethod = LossMethod.INTEGRATED
-        self.learning_rate: float = 1e-3
-        self.epochs: int = 10
+        self.learning_rate: float = 0.0
+        self.epochs: int = 0
         self.optimizer: ModelOptimizer = ModelOptimizer.ADAM
         # self.scheduler: ModelScheduler = ...
 
         self.lora_task: TaskType = TaskType.CAUSAL_LM
-        self.lora_r: float = 8
-        self.lora_alpha: float = 32
-        self.lora_dropout: float = 0.1
+        self.lora_r: float = 0
+        self.lora_alpha: float = 0
+        self.lora_dropout: float = 0.0
 
         self.wandb_token_path: str = ''
         self.checkpoints_dir: str = ''
@@ -92,8 +100,10 @@ class Configuration:
         self.model = None
 
         self.metrics: list[dict] = []
+        self.examples: list[str] = []
 
         self.configured = self.__dict__.copy()
+        self.forced_fields: list[str] = []
         for key in self.configured:
             self.configured[key] = False
 
@@ -102,6 +112,24 @@ class Configuration:
         self.configure_status('phase', '')
         self.configure_status('error', None)
         self.configure_status('approved', False)
+
+    def get_log(self):
+        log = {}
+
+        for key in self.configured:
+            field = getattr(self, key)
+
+            if isinstance(field, str) or isinstance(field, int) or isinstance(field, float) or isinstance(field, bool):
+                log[key] = field
+
+            if isinstance(field, Enum):
+                log[key] = field.name
+
+        # log specific lists separately
+        log['categories'] = self.categories
+        log['dataset_balance'] = self.dataset_balance
+
+        return log
 
     def configure_status(self, attribute: Literal['stage', 'phase', 'error', 'approved'], value):
         status = {
@@ -118,8 +146,18 @@ class Configuration:
 
         self.status = status
 
-    def configure(self, attribute, value):
+    def configure(self, attribute, value, forced=False):
         assert hasattr(self, attribute), f'there is no such field "{attribute}" in the configuration'
+        assert isinstance(value, getattr(self, attribute).__class__) or getattr(self, attribute) is None, \
+            f'value for field "{attribute}" is not {getattr(self, attribute).__class__} type'
+
+        if attribute in self.forced_fields and self.configured[attribute] and not forced:
+            Configuration.logger.info(f'field "{attribute}" is forced and can not be configured')
+            return
+
+        if forced and attribute not in self.forced_fields:
+            self.forced_fields.append(attribute)
+
         self.__setattr__(attribute, value)
         self.configured[attribute] = True
         Configuration.logger.info(f'field "{attribute}" configured')

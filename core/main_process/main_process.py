@@ -11,7 +11,7 @@ from core.environment_setup import (
     DataTokenizing
 )
 from core.finetuning import (HPO, FinetuningMethodSelection, Finetuning)
-from core.evaluating import Evaluating
+from core.evaluation import Evaluation
 from core.environment_cleaning import EnvironmentCleaning
 
 
@@ -32,10 +32,10 @@ class MainProcess(Thread):
 
         if pipeline_setup == PipelineSetup.FULL:
             stages.append(Finetuning())
-            stages.append(Evaluating())
+            stages.append(Evaluation())
 
         elif pipeline_setup == PipelineSetup.EVALUATION:
-            stages.append(Evaluating())
+            stages.append(Evaluation())
 
         stages.append(EnvironmentCleaning())
         self.pipeline = Pipeline(*stages)

@@ -19,4 +19,5 @@ def test():
         'model_alias': 'sshleifer/tiny-gpt2'
     })
 
-    test_process.run_pipeline()
+    test_process.start_run()
+    test_process.execute_pipeline()

@@ -53,15 +53,17 @@ class NLPDataset(Dataset):
 class DataTokenizing(Stage):
     def execute(self):
         self.config.configure('tokenizer', AutoTokenizer.from_pretrained(self.config.model_alias))
-        self.config.configure('tokenizer_max_length', 512)
 
         if self.config.tokenizer.pad_token is None:
             self.config.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             self.config.pretrain_model.resize_token_embeddings(len(self.config.tokenizer))
 
+        self.config.configure('tokenizer_vocab_size', len(self.config.tokenizer))
+        self.config.configure('tokenizer_max_length', 512)
+
         self.config.configure('validation_dataset_size', 0.3)
         self.config.configure('test_dataset_size', 0.1)
-        self.config.configure('batch_size', 4)
+        self.config.configure('batch_size', 16)
 
         x_train, x_test, y_train, y_test = train_test_split(self.config.X,
                                                             self.config.Y,

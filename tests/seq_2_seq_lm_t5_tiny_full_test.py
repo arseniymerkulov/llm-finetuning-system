@@ -19,4 +19,5 @@ def test():
         'model_alias': 'google/t5-efficient-tiny'
     })
 
-    test_process.run_pipeline()
+    test_process.start_run()
+    test_process.execute_pipeline()
