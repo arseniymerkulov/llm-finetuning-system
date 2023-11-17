@@ -1,3 +1,4 @@
+from transformers import GenerationConfig
 import pytorch_lightning as pl
 import torchmetrics
 import torch
@@ -37,13 +38,21 @@ class NLPEvaluationModel(NLPModel):
 
     def _generate(self, input_ids, attention_mask):
         # todo: estimate generation parameters
-        return self.model.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            max_length=self.config.tokenizer_max_length,
-            repetition_penalty=3.0,
-            temperature=1.0,
-            early_stopping=True)
+
+        try:
+            return self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                generation_config=GenerationConfig.from_pretrained(self.config.model_alias)
+            )
+        except EnvironmentError:
+            return self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_length=self.config.tokenizer_max_length,
+                repetition_penalty=3.0,
+                temperature=1.0,
+                early_stopping=True)
 
     def _compute_metrics(self, batch, labels):
         # todo: why last logged value is not equal to last computed metric in console?

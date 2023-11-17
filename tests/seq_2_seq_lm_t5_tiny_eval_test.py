@@ -15,7 +15,7 @@ def test():
         'task': 'SEQ_2_SEQ_LM',
         'dataset_alias': 'sunnysai12345/news-summary',
         'dataset_file': 'news_summary.csv',
-        'dataset_table_columns': ['text', 'ctext'],
+        'dataset_table_columns': ['ctext', 'text'],
         'dataset_partition': 1000,
         'model_alias': 'google/t5-efficient-tiny'
     })

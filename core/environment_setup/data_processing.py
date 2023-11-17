@@ -14,7 +14,9 @@ class DataProcessing(Stage):
         # todo: field is useless
         self.config.configure('dataset_storage_format', DatasetStorageFormat.TABLE)
         self.config.wait('dataset_table_columns')
-        assert len(self.config.dataset_table_columns) == 2, 'more than 2 columns specified'
+        assert 0 < len(self.config.dataset_table_columns) <= 2, 'incorrect amount of columns specified'
+        assert len(self.config.dataset_table_columns) == 2 or self.config.task == Task.CAUSAL_LM, \
+            '1 column supported only for causal lm tasks'
 
         self.config.wait('dataset_partition')
         if self.config.task == Task.CLASSIFICATION:
@@ -37,12 +39,7 @@ class DataProcessing(Stage):
             self.config.wait('dataset_file')
             dataset_path = f'{self.config.dataset_dir}/{self.config.dataset_file}'
 
-        if 'csv' in dataset_path:
-            # todo: how to estimate encoding?
-            #       different encodings with try:
-            df = pd.read_csv(dataset_path, encoding='latin-1')
-        else:
-            df = pd.read_json(dataset_path, lines=True)
+        df = self._read_csv(dataset_path) if 'csv' in dataset_path else pd.read_json(dataset_path, lines=True)
         self.logger.info(df.head())
 
         df = df[self.config.dataset_table_columns]
@@ -73,8 +70,10 @@ class DataProcessing(Stage):
 
             self.logger.info(df.head())
 
+            # can be single column for causal lm
+            label_index = 1 if len(self.config.dataset_table_columns) == 2 else 0
             self.config.configure('X', df[self.config.dataset_table_columns[0]].tolist())
-            self.config.configure('Y', df[self.config.dataset_table_columns[1]].tolist())
+            self.config.configure('Y', df[self.config.dataset_table_columns[label_index]].tolist())
             assert isinstance(self.config.Y[0], str), \
                 f'only <str> type is available for targets with "{self.config.task.name}" task'
 
@@ -86,6 +85,20 @@ class DataProcessing(Stage):
         sample_size = min(df.size().min(), self.config.dataset_partition // self.config.num_classes) \
             if self.config.dataset_partition else df.size().min()
         return pd.DataFrame(df.apply(lambda x: x.sample(sample_size).reset_index(drop=True)))
+
+    def _read_csv(self, dataset_path):
+        encodings = ['utf-8', 'latin-1']
+        df = None
+
+        for encoding in encodings:
+            try:
+                self.logger.info(f'decoding .csv file with {encoding} encoding')
+                df = pd.read_csv(dataset_path, encoding=encoding)
+                break
+            except UnicodeDecodeError:
+                self.logger.info('decoding failed')
+
+        return df
 
     @staticmethod
     def _preprocess_categories(Y):

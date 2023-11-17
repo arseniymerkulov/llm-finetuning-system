@@ -14,12 +14,12 @@ def test():
         test_process = TestProcess(test_name, configuration={
             'project': test_name,
             'pipeline_setup': 'FULL',
-            'task': 'SEQ_2_SEQ_LM',
-            'dataset_alias': 'rexhaif/rus-eng-bible',
-            'dataset_file': 'sentences (1).csv',
-            'dataset_table_columns': ['english', 'russian'],
+            'task': 'CAUSAL_LM',
+            'dataset_alias': 'sunnysai12345/news-summary',
+            'dataset_file': 'news_summary.csv',
+            'dataset_table_columns': ['text'],
             'dataset_partition': 6000,
-            'model_alias': 'google/t5-efficient-tiny',
+            'model_alias': 'sshleifer/tiny-gpt2',
             'learning_rate': lr
         })
 

@@ -1,5 +1,5 @@
 from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
-from peft import get_peft_model, LoraConfig
+from peft import get_peft_model, LoraConfig, PeftConfig
 import pytorch_lightning as pl
 import torch
 import os
@@ -28,19 +28,23 @@ class NLPModel(pl.LightningModule):
                 param.requires_grad = True
 
         elif self.config.finetuning_method == FinetuningMethod.LORA:
-            # todo: compatibility for LoRa state dicts and fn state dicts
+            # todo: research compatibility for LoRa state dicts and fn state dicts
             # todo: gpt-2 and gpt2 aliases exists
             assert any(key in self.config.model_alias for key
                        in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING.keys()), \
                 f'LoRa does not have support for model "{self.config.model_alias}", you need to specify layers manually'
 
-            lora = LoraConfig(
-                task_type=self.config.lora_task,
-                inference_mode=False,
-                r=self.config.lora_r,
-                lora_alpha=self.config.lora_alpha,
-                lora_dropout=self.config.lora_dropout,
-            )
+            try:
+                lora = PeftConfig.from_pretrained(self.config.model_alias)
+            except ValueError as e:
+                lora = LoraConfig(
+                    task_type=self.config.lora_task,
+                    inference_mode=False,
+                    r=self.config.lora_r,
+                    lora_alpha=self.config.lora_alpha,
+                    lora_dropout=self.config.lora_dropout,
+                )
+
             self.model = get_peft_model(self.model, lora)
             self.model.print_trainable_parameters()
 

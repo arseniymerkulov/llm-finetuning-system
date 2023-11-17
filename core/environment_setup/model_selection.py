@@ -11,6 +11,7 @@ class ModelSelection(Stage):
         self.config.wait('model_alias')
 
         # todo: exception processing
+        # todo: task is seq2seq, but auto class is causal lm, see wandb logs
         auto_class = TASK_TO_AUTO_CLASS_MAPPING[self.config.task].value
         model = getattr(transformers, auto_class).from_pretrained(self.config.model_alias)
 
