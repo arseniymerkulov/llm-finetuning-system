@@ -136,3 +136,32 @@ class TestProcess:
         self.wait('approve')
         self.approve_stage()
         self.wait('finished')
+
+    def selection(self, scenario: dict):
+        def run(**kwargs):
+            self.logger.info(f'start experiment with {kwargs}')
+            self.start_run()
+            for kwarg in kwargs:
+                self.configuration[kwarg] = kwargs[kwarg]
+                self.update_configuration(kwarg, forced=True)
+            self.execute_pipeline()
+
+        def rec(scenario: dict, **kwargs):
+            if len(scenario.keys()) == 1:
+                key = list(scenario.keys())[0]
+
+                for value in scenario[key]:
+                    kwargs[key] = value
+                    run(**kwargs)
+                return
+
+            for key in scenario:
+                new_scenario = scenario.copy()
+                del new_scenario[key]
+
+                for value in scenario[key]:
+                    kwargs[key] = value
+                    rec(new_scenario, **kwargs)
+                return
+
+        rec(scenario)

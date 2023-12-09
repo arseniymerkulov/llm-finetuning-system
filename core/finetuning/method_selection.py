@@ -4,7 +4,7 @@ from core.configuration import FinetuningMethod, LossMethod, Task
 
 class FinetuningMethodSelection(Stage):
     def execute(self):
-        self.config.configure('finetuning_method', FinetuningMethod.LORA)
+        self.config.configure('finetuning_method', FinetuningMethod.LINEAR_ONLY)
         # configuring linear part, quantization
 
         if self.config.task == Task.CLASSIFICATION:

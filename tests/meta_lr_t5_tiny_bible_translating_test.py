@@ -13,12 +13,12 @@ def test():
     for lr in scenario:
         test_process = TestProcess(test_name, configuration={
             'project': test_name,
-            'pipeline_setup': 'FULL',
+            'pipeline_setup': 'EVALUATION',
             'task': 'SEQ_2_SEQ_LM',
             'dataset_alias': 'rexhaif/rus-eng-bible',
             'dataset_file': 'sentences (1).csv',
             'dataset_table_columns': ['english', 'russian'],
-            'dataset_partition': 6000,
+            'dataset_partition': 100,
             'model_alias': 'google/t5-efficient-tiny',
             'learning_rate': lr
         })

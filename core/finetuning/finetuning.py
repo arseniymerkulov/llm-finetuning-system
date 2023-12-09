@@ -27,8 +27,13 @@ class NLPModel(pl.LightningModule):
             for param in self.model.parameters():
                 param.requires_grad = True
 
+        elif self.config.finetuning_method == FinetuningMethod.LINEAR_ONLY:
+            for param in self.model.pretrain_model.parameters():
+                param.requires_grad = False
+
         elif self.config.finetuning_method == FinetuningMethod.LORA:
             # todo: research compatibility for LoRa state dicts and fn state dicts
+            # todo: research problems with LoRa for rubert
             # todo: gpt-2 and gpt2 aliases exists
             assert any(key in self.config.model_alias for key
                        in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING.keys()), \
@@ -131,11 +136,29 @@ class NLPModel(pl.LightningModule):
     def configure_optimizers(self):
         assert any([parameter.requires_grad for parameter in self.model.parameters()]), \
             'all weights in model are frozen'
+        optimizers = []
+
+        if self.config.finetuning_method != FinetuningMethod.LINEAR_ONLY:
+            optimizers.append(self._create_optimizer_default())
+
+        if self.config.add_linear_part:
+            optimizers.append(self._create_optimizer_additional())
+
+        return optimizers
+
+    def _create_optimizer_default(self):
+        # only parameters from pretrain model
+        model = self.model if not self.config.add_linear_part else self.model.pretrain_model
         assert hasattr(torch.optim, self.config.optimizer.value), 'invalid optimizer name'
-        # todo: different lr for different model parts
-        optimizer = getattr(torch.optim, self.config.optimizer.value)(self.model.parameters(),
-                                                                      lr=self.config.learning_rate)
-        return optimizer
+        return getattr(torch.optim, self.config.optimizer.value)(model.parameters(), lr=self.config.learning_rate)
+
+    def _create_optimizer_additional(self):
+        assert self.config.add_linear_part, 'creating additional optimizer without adding linear part'
+        assert hasattr(torch.optim, self.config.additional_optimizer.value), 'invalid optimizer name'
+        return getattr(torch.optim, self.config.additional_optimizer.value)(
+            self.model.linear_part.parameters(),
+            lr=self.config.additional_learning_rate
+        )
 
     def on_train_start(self):
         self.logger.log_hyperparams(self.config.get_log())

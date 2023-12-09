@@ -19,13 +19,21 @@ class NLPEvaluationModel(NLPModel):
 
     def _create_metric(self, metric: Metric):
         if metric == Metric.ACCURACY:
-            return torchmetrics.classification.Accuracy(task='multiclass', num_classes=self.config.num_classes)
+            return torchmetrics.classification.Accuracy(task='multiclass',
+                                                        num_classes=self.config.num_classes,
+                                                        average='macro')
         elif metric == Metric.RECALL:
-            return torchmetrics.classification.Recall(task='multiclass', num_classes=self.config.num_classes)
+            return torchmetrics.classification.Recall(task='multiclass',
+                                                      num_classes=self.config.num_classes,
+                                                      average='macro')
         elif metric == Metric.PRECISION:
-            return torchmetrics.classification.Precision(task='multiclass', num_classes=self.config.num_classes)
+            return torchmetrics.classification.Precision(task='multiclass',
+                                                         num_classes=self.config.num_classes,
+                                                         average='macro')
         elif metric == Metric.F1_SCORE:
-            return torchmetrics.classification.F1Score(task='multiclass', num_classes=self.config.num_classes)
+            return torchmetrics.classification.F1Score(task='multiclass',
+                                                       num_classes=self.config.num_classes,
+                                                       average='macro')
         elif metric == Metric.PERPLEXITY:
             # do i need to specify ignore_index for special tokens for cleaner score?
             return torchmetrics.text.Perplexity()
@@ -92,21 +100,29 @@ class NLPEvaluationModel(NLPModel):
         self.logger.log_metrics(metrics_dict_for_logging)
 
     def _generate_example(self, batch, labels):
+        # todo: metrics for classification have same value, looks sus
         input_decoded = self.config.tokenizer.batch_decode(batch['input_ids'])
 
         if self.config.task != Task.CLASSIFICATION:
             preds = self._generate(batch['input_ids'], batch['attention_mask'])
             preds = self.config.tokenizer.batch_decode(preds)
             labels = self.config.tokenizer.batch_decode(labels)
+
+            return [{
+                'input': input_ids.replace(self.config.tokenizer.pad_token, ''),
+                'preds': prediction.replace(self.config.tokenizer.pad_token, ''),
+                'label': label.replace(self.config.tokenizer.pad_token, '')
+            } for input_ids, prediction, label in zip(input_decoded, preds, labels)]
         else:
             output = self.model.forward(**batch)
             _, preds = self._preprocess_output(output, labels)
+            preds = [torch.argmax(prediction).detach().cpu().item() for prediction in preds]
 
-        return [{
-            'input': input_ids.replace(self.config.tokenizer.pad_token, ''),
-            'preds': prediction.replace(self.config.tokenizer.pad_token, ''),
-            'label': label.replace(self.config.tokenizer.pad_token, '')
-        } for input_ids, prediction, label in zip(input_decoded, preds, labels)]
+            return [{
+                'input': input_ids.replace(self.config.tokenizer.pad_token, ''),
+                'preds': self.config.categories[prediction],
+                'label': self.config.categories[label]
+            } for input_ids, prediction, label in zip(input_decoded, preds, labels)]
 
     @torch.no_grad()
     def test_step(self, batch, batch_idx: int):

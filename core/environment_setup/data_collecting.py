@@ -14,8 +14,7 @@ class DataCollecting(Stage):
         self.config.configure('kaggle_token_path', 'data/kaggle.json')
 
         self.config.wait('dataset_alias')
-        self.config.configure('dataset_dir', f'{self.config.project_dir}/'
-                                             f'{self.settings.datasets_dir}/'
+        self.config.configure('dataset_dir', f'{self.settings.datasets_dir}/'
                                              f'{self.config.dataset_alias}')
 
         self._load_kaggle_token()

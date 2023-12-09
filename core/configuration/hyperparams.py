@@ -20,7 +20,8 @@ class DatasetStorageFormat(Enum):
 
 class FinetuningMethod(Enum):
     FULL_FINETUNING = 1
-    LORA = 2
+    LINEAR_ONLY = 2
+    LORA = 3
 
 
 class LossMethod(Enum):

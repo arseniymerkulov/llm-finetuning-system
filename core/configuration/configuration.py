@@ -84,9 +84,11 @@ class Configuration:
         # parameters for quantization ...
 
         self.loss_method: LossMethod = LossMethod.INTEGRATED
-        self.learning_rate: float = 0.0
         self.epochs: int = 0
+        self.learning_rate: float = 0.0
         self.optimizer: ModelOptimizer = ModelOptimizer.ADAM
+        self.additional_learning_rate: float = 0.0
+        self.additional_optimizer: ModelOptimizer = ModelOptimizer.ADAM
         # self.scheduler: ModelScheduler = ...
 
         self.lora_task: TaskType = TaskType.CAUSAL_LM

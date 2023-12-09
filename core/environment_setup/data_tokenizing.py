@@ -63,7 +63,7 @@ class DataTokenizing(Stage):
 
         self.config.configure('validation_dataset_size', 0.3)
         self.config.configure('test_dataset_size', 0.1)
-        self.config.configure('batch_size', 16)
+        self.config.configure('batch_size', 8)
 
         x_train, x_test, y_train, y_test = train_test_split(self.config.X,
                                                             self.config.Y,
